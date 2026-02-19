@@ -55,10 +55,11 @@ public class DBProvider {
         DB tempDb = initDB(dbBackend, path, candidateFile, version, false);
         if (tempDb != null) {
           db = tempDb;
-            logger.info("Successfully initialized DB at fallback path: {}", path);
+          dbFile = candidateFile;
+          logger.info("Successfully initialized DB at fallback path: {}", path);
           break;
         }
-      } catch (IOException e) {
+      } catch (Exception e) {
           logger.warn("Failed to initialize DB at fallback path: {}", path, e);
       }
     }

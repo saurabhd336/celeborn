@@ -973,6 +973,13 @@ private[celeborn] class Worker(
     if (path.isEmpty) {
       return "newParentPath cannot be empty"
     }
+
+    // Ensure the path is atleast one of the fallbacks currently configured
+    val fallbackPaths = conf.workerGracefulShutdownRecoverPath ++ conf.workerGracefulShutdownRecoverPathFallbacks
+    if (!fallbackPaths.contains(path)) {
+      return s"newParentPath should be one of the configured fallback paths: ${fallbackPaths.mkString(", ")}"
+    }
+
     try {
       org.apache.celeborn.service.deploy.worker.shuffledb.DBProvider.migrateAllDBs(path)
       s"Migrated all DBs to $path"

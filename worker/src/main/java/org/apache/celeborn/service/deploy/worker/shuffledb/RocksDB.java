@@ -85,7 +85,6 @@ public class RocksDB implements DB {
 
   @Override
   public byte[] get(byte[] key) {
-    // reads do not need to be blocked by migration, but we still allow concurrent reads
     try {
       return db.get(key);
     } catch (RocksDBException e) {
@@ -135,18 +134,20 @@ public class RocksDB implements DB {
   @Override
   public void migrate(String newParentPath) throws IOException {
     migrationExclusiveLock.lock();
-    org.rocksdb.RocksDB oldDb = null;
+    org.rocksdb.RocksDB oldDb;
     org.rocksdb.RocksDB newDb = null;
     try {
       final File oldPath = dbPath;
       final File oldParentPath = new File(parentPath);
+
       // 2) Create iterator from current DB
       oldDb = this.db;
       RocksIterator it = oldDb.newIterator();
       it.seekToFirst();
 
-      // 3) Create a new DB with the new path (use current version policy 1.0)
-      // The actual target file should be newParentPath/<current file name relative to parentPath>
+      // 3) Create a new DB with the new path
+
+      // The actual target file should be newParentPath/<current file name relative to current parentPath>
       // Find the relative path of current db file to parentPath
       String relativePath = new File(parentPath).toPath().relativize(oldPath.toPath()).toString();
       File target = new File(newParentPath, relativePath);

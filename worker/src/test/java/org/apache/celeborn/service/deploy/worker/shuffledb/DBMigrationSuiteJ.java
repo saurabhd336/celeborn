@@ -1,5 +1,6 @@
 package org.apache.celeborn.service.deploy.worker.shuffledb;
 
+import org.apache.celeborn.common.CelebornConf;
 import org.apache.celeborn.common.util.JavaUtils;
 import org.junit.Test;
 
