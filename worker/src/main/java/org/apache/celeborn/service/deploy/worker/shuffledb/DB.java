@@ -18,6 +18,7 @@
 package org.apache.celeborn.service.deploy.worker.shuffledb;
 
 import java.io.Closeable;
+import java.io.IOException;
 
 /** Note: code copied from Apache Spark. */
 public interface DB extends Closeable {
@@ -38,4 +39,7 @@ public interface DB extends Closeable {
 
   /** Return an iterator over the contents of the DB. */
   DBIterator iterator();
+
+  /** Migrate the DB to a new path. */
+  void migrate(String newPath) throws IOException;
 }

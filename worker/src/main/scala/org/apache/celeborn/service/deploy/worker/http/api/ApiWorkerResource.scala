@@ -29,6 +29,7 @@ import org.apache.celeborn.server.common.http.api.ApiRequestContext
 
 @Tag(name = "Deprecated")
 @Path("/")
+@Tag(name = "Worker APIs")
 class ApiWorkerResource extends ApiRequestContext {
 
   @Path("/listPartitionLocationInfo")
@@ -87,5 +88,15 @@ class ApiWorkerResource extends ApiRequestContext {
   @POST
   def exit(@FormParam("type") exitType: String): String = {
     httpService.exit(normalizeParam(exitType))
+  }
+
+  @Path("/migrateAllDBs")
+  @ApiResponse(
+    responseCode = "200",
+    content = Array(new Content(mediaType = MediaType.TEXT_PLAIN)),
+    description = "Trigger migration of all worker DBs to a new parent filesystem path.")
+  @POST
+  def migrateAllDBs(@FormParam("newParentPath") newParentPath: String): String = {
+    httpService.migrateAllDBs(normalizeParam(newParentPath))
   }
 }

@@ -968,6 +968,21 @@ private[celeborn] class Worker(
     sb.toString()
   }
 
+  override def migrateAllDBs(newParentPath: String): String = {
+    val path = Option(newParentPath).map(_.trim).getOrElse("")
+    if (path.isEmpty) {
+      return "newParentPath cannot be empty"
+    }
+    try {
+      org.apache.celeborn.service.deploy.worker.shuffledb.DBProvider.migrateAllDBs(path)
+      s"Migrated all DBs to $path"
+    } catch {
+      case e: Throwable =>
+        logError(s"Failed to migrate DBs to $path", e)
+        s"Failed to migrate DBs to $path: ${e.getMessage}"
+    }
+  }
+
   def shutdownGracefully(): Unit = {
     // During shutdown, to avoid allocate slots in this worker,
     // add this worker to master's excluded list. When restart, register worker will

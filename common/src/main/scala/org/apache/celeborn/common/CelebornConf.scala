@@ -1360,6 +1360,8 @@ class CelebornConf(loadDefaults: Boolean) extends Cloneable with Logging with Se
   def workerGracefulShutdownCheckSlotsFinishedTimeoutMs: Long =
     get(WORKER_CHECK_SLOTS_FINISHED_TIMEOUT)
   def workerGracefulShutdownRecoverPath: String = get(WORKER_GRACEFUL_SHUTDOWN_RECOVER_PATH)
+  def workerGracefulShutdownRecoverPathFallbacks: Seq[String] =
+    get(WORKER_GRACEFUL_SHUTDOWN_RECOVER_PATH_FALLBACKS)
   def workerGracefulShutdownRecoverDbBackend: String =
     get(WORKER_GRACEFUL_SHUTDOWN_RECOVER_DB_BACKEND)
   def workerGracefulShutdownPartitionSorterCloseAwaitTimeMs: Long =
@@ -4440,6 +4442,15 @@ object CelebornConf extends Logging {
       .stringConf
       .transform(_.replace("<tmp>", System.getProperty("java.io.tmpdir")))
       .createWithDefault(s"<tmp>/recover")
+
+  val WORKER_GRACEFUL_SHUTDOWN_RECOVER_PATH_FALLBACKS: ConfigEntry[Seq[String]] =
+    buildConf("celeborn.worker.graceful.shutdown.recoverPath.fallbacks")
+      .categories("worker")
+      .version("0.7.0")
+      .doc("The fallback paths to lookup DB when the primary recover path is not found.")
+      .stringConf
+      .toSequence
+      .createWithDefault(Seq.empty)
 
   val WORKER_GRACEFUL_SHUTDOWN_RECOVER_DB_BACKEND: ConfigEntry[String] =
     buildConf("celeborn.worker.graceful.shutdown.recoverDbBackend")

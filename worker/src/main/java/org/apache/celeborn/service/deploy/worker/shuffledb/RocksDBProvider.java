@@ -48,7 +48,11 @@ public class RocksDBProvider {
 
   private static final Logger logger = LoggerFactory.getLogger(RocksDBProvider.class);
 
-  public static org.rocksdb.RocksDB initRockDB(File dbFile, StoreVersion version)
+  public static org.rocksdb.RocksDB initRockDB(File dbFile, StoreVersion version) throws IOException {
+    return initRockDB(dbFile, version, true);
+  }
+
+  public static org.rocksdb.RocksDB initRockDB(File dbFile, StoreVersion version, boolean createIfMissing)
       throws IOException {
     org.rocksdb.RocksDB tmpDb = null;
     if (dbFile != null) {
@@ -73,12 +77,20 @@ public class RocksDBProvider {
         tmpDb = org.rocksdb.RocksDB.open(dbOptions, dbFile.toString());
       } catch (RocksDBException e) {
         if (e.getStatus().getCode() == Status.Code.NotFound) {
-          logger.info("Creating state database at " + dbFile);
-          createIfMissing(dbOptions, dbFile);
-          try {
-            tmpDb = org.rocksdb.RocksDB.open(dbOptions, dbFile.toString());
-          } catch (RocksDBException dbExc) {
-            throw new IOException("Unable to create state store", dbExc);
+          if (createIfMissing) {
+            logger.info("Creating state database at " + dbFile);
+            createIfMissing(dbOptions, dbFile);
+            try {
+              tmpDb = org.rocksdb.RocksDB.open(dbOptions, dbFile.toString());
+            } catch (RocksDBException dbExc) {
+              throw new IOException("Unable to create state store", dbExc);
+            }
+          } else {
+            throw new IOException(
+                "RocksDB file "
+                    + dbFile
+                    + " does not exist. Please check if the path is correct and the file is not deleted.",
+                e);
           }
         } else {
           // the RocksDB file seems to be corrupt somehow.  Let's just blow it away and create
@@ -98,11 +110,20 @@ public class RocksDBProvider {
           if (!dbFile.delete()) {
             logger.warn("Error deleting {}", dbFile.getPath());
           }
-          createIfMissing(dbOptions, dbFile);
-          try {
-            tmpDb = org.rocksdb.RocksDB.open(dbOptions, dbFile.toString());
-          } catch (RocksDBException dbExc) {
-            throw new IOException("Unable to create state store", dbExc);
+
+          if (createIfMissing) {
+            createIfMissing(dbOptions, dbFile);
+            try {
+              tmpDb = org.rocksdb.RocksDB.open(dbOptions, dbFile.toString());
+            } catch (RocksDBException dbExc) {
+              throw new IOException("Unable to create state store", dbExc);
+            }
+          } else {
+            throw new IOException(
+                "RocksDB file "
+                    + dbFile
+                    + " is corrupted and cannot be opened. Please check if the file is not deleted or corrupted.",
+                e);
           }
         }
       }

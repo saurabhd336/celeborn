@@ -195,6 +195,13 @@ abstract class HttpService extends Service with Logging {
   def updateInterruptionNotice(workerInterruptionNotices: Map[String, Long]): HandleResponse =
     throw new UnsupportedOperationException()
 
+  /**
+   * Migrate all databases to new parent path
+   * @param newParentPath new parent path for all rocksDB databases
+   * @return
+   */
+  def migrateAllDBs(newParentPath: String): String = throw new UnsupportedOperationException()
+
   def startHttpServer(): Unit = {
     httpServer = HttpServer(
       serviceName,

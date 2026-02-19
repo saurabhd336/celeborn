@@ -63,4 +63,9 @@ public class LevelDB implements DB {
   public DBIterator iterator() {
     return new LevelDBIterator(db.iterator());
   }
+
+  @Override
+  public void migrate(String newPath) throws IOException {
+    throw new UnsupportedOperationException("LevelDB does not support migration");
+  }
 }

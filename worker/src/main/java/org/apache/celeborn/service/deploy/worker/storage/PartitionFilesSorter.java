@@ -43,6 +43,7 @@ import com.google.common.cache.CacheBuilder;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.CompositeByteBuf;
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
@@ -123,8 +124,9 @@ public class PartitionFilesSorter extends ShuffleRecoverHelper {
         DBBackend dbBackend = DBBackend.byName(conf.workerGracefulShutdownRecoverDbBackend());
         String recoverySortedFilesFileName =
             dbBackend.fileName(RECOVERY_SORTED_FILES_FILE_NAME_PREFIX);
-        this.recoverFile = new File(recoverPath, recoverySortedFilesFileName);
-        this.sortedFilesDb = DBProvider.initDB(dbBackend, recoverFile, CURRENT_VERSION);
+        Pair<DB, File> db = DBProvider.initDBWithFallbackChecks(conf, dbBackend, recoverySortedFilesFileName, CURRENT_VERSION);
+        this.recoverFile = db.getRight();
+        this.sortedFilesDb = db.getLeft();
         reloadAndCleanSortedShuffleFiles(this.sortedFilesDb);
       } catch (Exception e) {
         throw new IllegalStateException(
@@ -419,6 +421,7 @@ public class PartitionFilesSorter extends ShuffleRecoverHelper {
       if (sortedFilesDb != null) {
         try {
           sortedFilesDb.close();
+          // TODO if db is migrated, this will be a no op
           recoverFile.delete();
         } catch (IOException e) {
           logger.error("Clean DB failed.", e);

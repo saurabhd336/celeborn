@@ -19,29 +19,105 @@ package org.apache.celeborn.service.deploy.worker.shuffledb;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
+import com.google.common.annotations.VisibleForTesting;
+import org.apache.celeborn.common.CelebornConf;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import scala.Function1;
 
 /** Note: code copied from Apache Spark. */
 public class DBProvider {
   private static final Logger logger = LoggerFactory.getLogger(DBProvider.class);
+  private static final List<DB> dbInstances = new ArrayList<>();
 
-  public static DB initDB(DBBackend dbBackend, File dbFile, StoreVersion version)
+  public static Pair<DB, File> initDBWithFallbackChecks(CelebornConf conf,
+                                                 DBBackend dbBackend, String fileName, StoreVersion version) throws IOException {
+    DB db = null;
+    File dbFile = null;
+    List<String> fallbackPaths = new ArrayList<>();
+    fallbackPaths.add(conf.workerGracefulShutdownRecoverPath());
+    conf.workerGracefulShutdownRecoverPathFallbacks()
+            .foreach(new Function1<String, Object>() {
+              @Override
+              public Object apply(String v1) {
+                return fallbackPaths.add(v1);
+              }
+            });
+
+    File candidateFile;
+    for (String path : fallbackPaths) {
+      candidateFile = new File(path, fileName);
+      try {
+        DB tempDb = initDB(dbBackend, path, candidateFile, version, false);
+        if (tempDb != null) {
+          db = tempDb;
+            logger.info("Successfully initialized DB at fallback path: {}", path);
+          break;
+        }
+      } catch (IOException e) {
+          logger.warn("Failed to initialize DB at fallback path: {}", path, e);
+      }
+    }
+
+    if (db == null) {
+      logger.info("Failed to initialize DB at all fallback paths. Attempting to initialize at primary path.");
+      dbFile = new File(conf.workerGracefulShutdownRecoverPath(), fileName);
+      db = initDB(dbBackend, conf.workerGracefulShutdownRecoverPath(), dbFile, version, true);
+    }
+
+    return Pair.of(db, dbFile);
+  }
+
+  @VisibleForTesting
+  public static DB initDB(DBBackend dbBackend, String baseParentPath,
+                                    File dbFile, StoreVersion version) throws IOException {
+    return initDB(dbBackend, baseParentPath, dbFile, version, true);
+  }
+
+  private static DB initDB(DBBackend dbBackend, String baseParentPath,
+                          File dbFile, StoreVersion version, boolean createIfMissing)
       throws IOException {
     if (dbFile != null) {
       switch (dbBackend) {
         case LEVELDB:
           org.iq80.leveldb.DB levelDB = LevelDBProvider.initLevelDB(dbFile, version);
           logger.warn("The LEVELDB is deprecated. Please use ROCKSDB instead.");
-          return levelDB != null ? new LevelDB(levelDB) : null;
+          DB db = levelDB != null ? new LevelDB(levelDB) : null;
+          if (db != null) {
+            dbInstances.add(db);
+          }
+          return db;
         case ROCKSDB:
-          org.rocksdb.RocksDB rocksDB = RocksDBProvider.initRockDB(dbFile, version);
-          return rocksDB != null ? new RocksDB(rocksDB) : null;
+          org.rocksdb.RocksDB rocksDB = RocksDBProvider.initRockDB(dbFile, version, createIfMissing);
+          DB rocksDBInstance = rocksDB != null
+                  ? new org.apache.celeborn.service.deploy.worker.shuffledb.RocksDB(
+                  rocksDB, version, baseParentPath, dbFile)
+                  : null;
+          if (rocksDBInstance != null) {
+            dbInstances.add(rocksDBInstance);
+          }
+
+          return rocksDBInstance;
         default:
           throw new IllegalArgumentException("Unsupported DBBackend: " + dbBackend);
       }
     }
     return null;
+  }
+
+  public static void migrateAllDBs(String newParentPath) throws IOException {
+    File newParentDir = new File(newParentPath);
+    if (!newParentDir.exists()) {
+        if (!newParentDir.mkdirs()) {
+            throw new IOException("Failed to create directory for DB migration: " + newParentPath);
+        }
+    }
+    for (DB db : dbInstances) {
+      db.migrate(newParentPath);
+    }
   }
 }

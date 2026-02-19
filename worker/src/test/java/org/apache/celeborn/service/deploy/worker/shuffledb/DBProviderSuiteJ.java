@@ -17,6 +17,8 @@
 
 package org.apache.celeborn.service.deploy.worker.shuffledb;
 
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeFalse;
@@ -66,13 +68,14 @@ public class DBProviderSuiteJ {
             : new File(dbDir.getPath(), String.format("%s-%s", namePrefix, UUID.randomUUID()));
     try {
       StoreVersion v1 = new StoreVersion(1, 0);
-      DBProvider.initDB(dbBackend, dbFile, v1).close();
+      DBProvider.initDB(dbBackend, null, dbFile, v1).close();
       StoreVersion v2 = new StoreVersion(2, 0);
       IOException ioe =
-          assertThrows(IOException.class, () -> DBProvider.initDB(dbBackend, dbFile, v2));
+          assertThrows(IOException.class, () -> DBProvider.initDB(dbBackend, null, dbFile, v2));
       assertTrue(ioe.getMessage().contains("incompatible with current version StoreVersion[2.0]"));
     } finally {
       JavaUtils.deleteRecursively(dbDir);
     }
   }
+
 }
